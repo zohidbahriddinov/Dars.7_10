@@ -58,7 +58,7 @@ class StudentAPIView(APIView):
         students = Student.objects.all()
         serializer = StudentSerializer(students, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     @swagger_auto_schema(request_body=StudentSerializer)
     def post(self, request):
         serializer = StudentSerializer(data=request.data)
@@ -66,18 +66,18 @@ class StudentAPIView(APIView):
             student = serializer.save()
 
             password = request.data['user']['password']
+            email = request.data['user']['email']
 
-            email = request.data['email']
-
-            subject = 'Sizning login malumotlaringiz',
-            message = f"Siz tizimga quyidagi ma'lumotlar bilan kirishingiz mumkin:\n Email : {email} \n Parol: {password}"
+            subject = 'Sizning login malumotlaringiz'
+            message = f"Siz tizimga quyidagi ma'lumotlar bilan kirishingiz mumkin:\nEmail: {email}\nParol: {password}"
 
             email_from = settings.EMAIL_HOST_USER
-            recipient_list= [f'{email}']
-  
-            send_mail(subject , message ,email_from , recipient_list)
+            recipient_list = [email]
+
+            send_mail(subject, message, email_from, recipient_list)
             return Response(StudentSerializer(student).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class TecherAPIView(APIView):
     def get(self, request):
@@ -92,18 +92,15 @@ class TecherAPIView(APIView):
             techer = serializer.save()
 
             password = request.data['user']['password']
-
-            email = request.data['email']
+            email = request.data['user']['email']
 
             email_from = settings.EMAIL_HOST_USER
-
-            recipient_list= [f'{email}']
+            recipient_list = [email]
 
             subject = 'Sizning login malumotlaringiz'
-
             message = f"Siz tizimga quyidagi ma'lumotlar bilan kirishingiz mumkin:\nEmail: {email}\nParol: {password}"
-  
-            send_mail(subject , message ,email_from , recipient_list)
+
+            send_mail(subject, message, email_from, recipient_list)
 
             return Response(TecherSerializer(techer).data, status=201)
         return Response(serializer.errors, status=400)
