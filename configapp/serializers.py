@@ -3,12 +3,14 @@ from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 from django.contrib.auth import authenticate
 
-
 class UserSerializers(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
     class Meta:
         model = User
-        fields = ['username' , 'email' , 'password' , 'phone']
-        read_only_fields = ['is_admin' , 'is_staff' , 'is_active']
+        fields = ['username', 'email', 'password', 'phone']
+        read_only_fields = ['is_admin', 'is_staff', 'is_active']
+
 
 class DaySerializers(serializers.ModelSerializer):
     class Meta:
@@ -37,41 +39,26 @@ class GroupStudentSerializers(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField()
-    password = serializers.CharField(write_only = True)
-
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
-        username = attrs.get('username')
+        email = attrs.get('email')
         password = attrs.get('password')
 
         try:
-            user = User.objects.get(username = username)
+            user = User.objects.get(email=email)
         except User.DoesNotExist:
-            raise serializers.ValidationError(
-                {
-                    'success' : False,
-                    'delail': "User does not exist"
-                }
-            )
-        
+            raise serializers.ValidationError({'detail': "Login yoki parol noto'g'ri."})
+
+        if not user.check_password(password):
+            raise serializers.ValidationError({'detail': "Login yoki parol noto'g'ri."})
+
         if not user.is_active:
-            raise serializers.ValidationError({
-                'detail' : "Bu foydalanuvchi aktiv emas. admin tasdiqlashi kerak."
-            })
-        
+            raise serializers.ValidationError({'detail': "Foydalanuvchi aktiv emas."})
 
-        auth_user = authenticate(username = user.username , password = password)
-        if auth_user is None:
-            raise serializers.ValidationError(
-                {
-                    'detail': "Login yoki  parol noto'g'ri."
-                }
-            )
-        
-        attrs['user'] = auth_user
+        attrs['user'] = user
         return attrs
-
 
 class TokenSerializer(serializers.Serializer):
     access = serializers.CharField()
@@ -91,7 +78,7 @@ class CouresSerializer(serializers.ModelSerializer):
 
 
 class TecherSerializer(serializers.ModelSerializer):
-    user = UserSerializers()  
+    user = UserSerializers()
 
     class Meta:
         model = Techer
@@ -101,17 +88,21 @@ class TecherSerializer(serializers.ModelSerializer):
         user_db = validated_data.pop('user')
         departments_db = validated_data.pop('departmenst', [])
         course_db = validated_data.pop('coures', [])
-        
+
+        raw_password = user_db.pop('password')
         user_db['is_active'] = False
         user_db['is_teacher'] = True
-        user = User.objects.create_user(**user_db)
+
+        user = User(**user_db)
+        user.set_password(raw_password)
+        user.save()
 
         techer = Techer.objects.create(user=user, **validated_data)
-
         techer.departmenst.set(departments_db)
         techer.coures.set(course_db)
 
         return techer
+
 
 
 class StudentSerializer(serializers.ModelSerializer):
@@ -119,54 +110,47 @@ class StudentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Student
-        fields = ['user',  'is_line', 'descriptions']
+        fields = ['user', 'is_line', 'descriptions']
 
     def create(self, validated_data):
         user_db = validated_data.pop('user')
+
+        raw_password = user_db.pop('password')
         user_db['is_active'] = False
         user_db['is_student'] = True
-        user = User.objects.create(**user_db)
+
+        user = User(**user_db)
+        user.set_password(raw_password)
+        user.save()
+
         student = Student.objects.create(
             user=user,
-            is_line=validated_data.get("is_line", False),
-            descriptions=validated_data.get("descriptions", "")
+            is_line=validated_data.get('is_line', False),
+            descriptions=validated_data.get('descriptions', "")
         )
 
         return student
+
     
 class UpdatePasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    old_password = serializers.CharField(write_only = True)
-    new_password = serializers.CharField(write_only = True)
+    new_password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
         email = attrs.get('email')
-
-        old_password = attrs.get('old_password')
-
-        user  = User.objects.filter(email = email).first()
+        user = User.objects.filter(email=email).first()
 
         if not user:
-            raise serializers.ValidationError({'email' : 'Bunday email mavjud emas.'})
-        
+            raise serializers.ValidationError({'email': 'Bunday email mavjud emas.'})
 
-        if not user.check_password(old_password):
-            raise serializers.ValidationError({'old_password': "Eski parol noto'g'ri."})
-        
-
-        attrs['user'] = user
-
+        attrs['user_instance'] = user
         return attrs
-    
-    def save(self , **kwargs):
-        user  = self.validated_data['user']
 
-        nwe_password = self.validated_data['new_password']
+    def save(self, **kwargs):
+        user = self.validated_data['user_instance']
+        new_password = self.validated_data['new_password']
 
-        user.set_password(nwe_password)
-
+        user.set_password(new_password)
         user.is_active = True
-
         user.save()
-
         return user

@@ -111,20 +111,14 @@ class LoginUser(APIView):
 
     @swagger_auto_schema(request_body=LoginSerializer, responses={200: TokenSerializer()})
     def post(self, request):
-        
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        username = serializer.validated_data['username']
-        password = serializer.validated_data['password']
 
-        user = get_object_or_404(User, username=username)
+        user = serializer.validated_data['user']
 
-        if not user.check_password(password):
-            return Response({'detail': 'Noto\'g\'ri parol.'}, status=400)
-        
+
         tokens = get_tokens_for_user(user)
-
 
         token_serializer = TokenSerializer(data=tokens)
         token_serializer.is_valid(raise_exception=True)
@@ -134,19 +128,17 @@ class LoginUser(APIView):
 
 class UpdatePasswordAPIView(APIView):
     @swagger_auto_schema(request_body=UpdatePasswordSerializer)
+    def post(self, request):
+        serializer = UpdatePasswordSerializer(data=request.data)
 
-    def post(self ,request):
-        serializers = UpdatePasswordSerializer(data = request.data)
-
-        if serializers.is_valid():
-            serializers.save()
+        if serializer.is_valid():
+            serializer.save()
             return Response(
                 {
-                    'success' : True,
-                    'massage' : "Parol muvaffaqiyatli yangilandi."
+                    'success': True,
+                    'message': "Parol muvaffaqiyatli yangilandi."
                 },
                 status=status.HTTP_200_OK
             )
-        return Response(serializers.errors , status=status.HTTP_400_BAD_REQUEST)
-    
 
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
